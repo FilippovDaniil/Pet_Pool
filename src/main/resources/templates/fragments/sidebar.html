@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<body>
+<div th:fragment="sidebar" class="sidebar bg-dark text-white d-flex flex-column p-3" style="width:220px;min-height:calc(100vh - 56px);flex-shrink:0">
+    <ul class="nav flex-column gap-1">
+        <li class="nav-item">
+            <a th:href="@{/dashboard}" class="nav-link text-white sidebar-link">
+                <i class="bi bi-speedometer2 me-2"></i>Дашборд
+            </a>
+        </li>
+        <li class="nav-item">
+            <a th:href="@{/tables}" class="nav-link text-white sidebar-link">
+                <i class="bi bi-grid-3x3 me-2"></i>Столы
+            </a>
+        </li>
+        <li class="nav-item">
+            <a th:href="@{/clients}" class="nav-link text-white sidebar-link">
+                <i class="bi bi-people me-2"></i>Клиенты
+            </a>
+        </li>
+        <li class="nav-item">
+            <a th:href="@{/bookings}" class="nav-link text-white sidebar-link">
+                <i class="bi bi-calendar-check me-2"></i>Бронирования
+            </a>
+        </li>
+        <li class="nav-item">
+            <a th:href="@{/tournament}" class="nav-link text-white sidebar-link">
+                <i class="bi bi-trophy me-2"></i>Турнирная доска
+            </a>
+        </li>
+        <li class="nav-item mt-2" sec:authorize="hasRole('ADMIN')">
+            <hr class="border-secondary my-1"/>
+            <span class="text-secondary small px-2">Администрирование</span>
+        </li>
+        <li class="nav-item" sec:authorize="hasRole('ADMIN')">
+            <a th:href="@{/admin/users}" class="nav-link text-white sidebar-link">
+                <i class="bi bi-person-gear me-2"></i>Сотрудники
+            </a>
+        </li>
+    </ul>
+</div>
+</body>
+</html>

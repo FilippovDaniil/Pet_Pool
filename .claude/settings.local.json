@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mvn --version)",
+      "PowerShell(Get-Command *)",
+      "Bash(psql -U postgres -c \"CREATE DATABASE billiard_club;\")",
+      "Bash(./gradlew compileJava)",
+      "Bash(./gradlew processResources)",
+      "Bash(./gradlew bootRun)",
+      "Bash(netstat -ano)",
+      "Bash(taskkill *)",
+      "PowerShell(Stop-Process *)",
+      "Bash(tee /tmp/bootrun.log)",
+      "Read(//tmp/**)",
+      "Bash(curl *)"
+    ]
+  }
+}

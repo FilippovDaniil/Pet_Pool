@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<body>
+<nav th:fragment="navbar" class="navbar navbar-dark bg-dark px-3 py-2 d-flex align-items-center justify-content-between">
+    <span class="navbar-brand mb-0 fw-bold">
+        <i class="bi bi-circle-fill me-2 text-warning"></i>Бильярдный клуб
+    </span>
+    <div class="d-flex align-items-center gap-3">
+        <span class="text-light small">
+            <i class="bi bi-person-circle me-1"></i>
+            <span sec:authentication="name">Пользователь</span>
+            <span class="badge ms-1"
+                  sec:authorize="hasRole('ADMIN')"
+                  style="background:#ffc107;color:#000">ADMIN</span>
+            <span class="badge bg-secondary ms-1"
+                  sec:authorize="hasRole('RECEPTION')">РЕЦЕПШН</span>
+        </span>
+        <form th:action="@{/logout}" method="post" class="mb-0">
+            <button type="submit" class="btn btn-sm btn-outline-light">
+                <i class="bi bi-box-arrow-right me-1"></i>Выйти
+            </button>
+        </form>
+    </div>
+</nav>
+</body>
+</html>

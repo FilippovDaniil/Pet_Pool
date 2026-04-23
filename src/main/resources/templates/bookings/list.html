@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security" lang="ru">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Бронирования — Бильярдный клуб</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"/>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet"/>
+    <link th:href="@{/css/style.css}" rel="stylesheet"/>
+</head>
+<body>
+<div th:replace="~{fragments/navbar :: navbar}"></div>
+<div class="d-flex">
+    <div th:replace="~{fragments/sidebar :: sidebar}"></div>
+    <main class="flex-grow-1 p-4 bg-light">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="h3 fw-bold mb-0">
+                <i class="bi bi-calendar-check me-2 text-warning"></i>Бронирования
+            </h1>
+            <a th:href="@{/bookings/new}" class="btn btn-warning">
+                <i class="bi bi-plus-lg me-1"></i>Новое бронирование
+            </a>
+        </div>
+
+        <div th:if="${successMessage}" class="alert alert-success alert-dismissible">
+            <span th:text="${successMessage}"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        <div th:if="${errorMessage}" class="alert alert-danger alert-dismissible">
+            <span th:text="${errorMessage}"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+
+        <!-- Filter -->
+        <div class="card shadow-sm border-0 mb-3">
+            <div class="card-body py-2">
+                <form th:action="@{/bookings}" method="get" class="row g-2 align-items-end">
+                    <div class="col-md-4">
+                        <label class="form-label small mb-1">Фильтр по статусу</label>
+                        <select name="status" class="form-select form-select-sm">
+                            <option value="">Все статусы</option>
+                            <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${s.displayName}"
+                                    th:selected="${s == selectedStatus}"></option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small mb-1">Дата</label>
+                        <input type="date" name="date" class="form-control form-control-sm"
+                               th:value="${selectedDate}"/>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-sm btn-outline-secondary w-100">
+                            <i class="bi bi-funnel me-1"></i>Применить
+                        </button>
+                    </div>
+                    <div class="col-md-2">
+                        <a th:href="@{/bookings}" class="btn btn-sm btn-link w-100">Сбросить</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0 align-middle">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Стол</th>
+                                <th>Клиент</th>
+                                <th>Начало</th>
+                                <th>Окончание</th>
+                                <th>Сумма</th>
+                                <th>Статус</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="b : ${bookings}">
+                                <td>
+                                    <span class="badge bg-secondary">№<span th:text="${b.table.number}"></span></span>
+                                    <small class="text-muted d-block" th:text="${b.table.type.displayName}"></small>
+                                </td>
+                                <td>
+                                    <div th:text="${b.client.fullName}"></div>
+                                    <small class="text-muted" th:text="${b.client.rank ?: ''}"></small>
+                                </td>
+                                <td class="small" th:text="${#temporals.format(b.startTime, 'dd.MM.yyyy HH:mm')}"></td>
+                                <td class="small" th:text="${#temporals.format(b.endTime, 'dd.MM.yyyy HH:mm')}"></td>
+                                <td class="fw-semibold" th:text="${b.totalPrice + ' ₽'}"></td>
+                                <td>
+                                    <span th:text="${b.status.displayName}"
+                                          th:class="${b.status.name() == 'PENDING'} ? 'badge bg-warning text-dark' :
+                                                    (${b.status.name() == 'PAID'} ? 'badge bg-primary' :
+                                                    (${b.status.name() == 'ACTIVE'} ? 'badge bg-success' :
+                                                    (${b.status.name() == 'COMPLETED'} ? 'badge bg-secondary' : 'badge bg-danger')))">
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="d-flex gap-1 flex-wrap">
+                                        <!-- PENDING: Pay & Cancel -->
+                                        <th:block th:if="${b.status.name() == 'PENDING'}">
+                                            <button type="button" class="btn btn-sm btn-success"
+                                                    data-bs-toggle="modal"
+                                                    th:data-bs-target="${'#payModal-' + b.id}">
+                                                <i class="bi bi-cash me-1"></i>Оплатить
+                                            </button>
+                                            <form th:action="@{/bookings/{id}/cancel(id=${b.id})}" method="post"
+                                                  onsubmit="return confirm('Отменить бронирование?')">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                    <i class="bi bi-x-lg"></i>
+                                                </button>
+                                            </form>
+                                        </th:block>
+
+                                        <!-- PAID: Start game -->
+                                        <th:block th:if="${b.status.name() == 'PAID'}">
+                                            <button type="button" class="btn btn-sm btn-primary"
+                                                    data-bs-toggle="modal"
+                                                    th:data-bs-target="${'#startGameModal-' + b.id}">
+                                                <i class="bi bi-play-fill me-1"></i>Начать игру
+                                            </button>
+                                        </th:block>
+
+                                        <!-- ACTIVE: Finish game -->
+                                        <th:block th:if="${b.status.name() == 'ACTIVE'}">
+                                            <button type="button" class="btn btn-sm btn-warning"
+                                                    data-bs-toggle="modal"
+                                                    th:data-bs-target="${'#finishGameModal-' + b.id}">
+                                                <i class="bi bi-flag-fill me-1"></i>Завершить
+                                            </button>
+                                        </th:block>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr th:if="${bookings.isEmpty()}">
+                                <td colspan="7" class="text-center text-muted py-4">Бронирования не найдены</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- Pay Modals -->
+<div th:each="b : ${bookings}" th:if="${b.status.name() == 'PENDING'}">
+    <div th:id="${'payModal-' + b.id}" class="modal fade" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Приём оплаты</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form th:action="@{/bookings/{id}/pay(id=${b.id})}" method="post">
+                    <div class="modal-body">
+                        <p>Стол №<strong th:text="${b.table.number}"></strong> —
+                            <span th:text="${b.client.fullName}"></span></p>
+                        <p class="fw-bold">К оплате: <span th:text="${b.totalPrice}"></span> ₽</p>
+                        <div>
+                            <label class="form-label">Способ оплаты</label>
+                            <div class="d-flex gap-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="paymentMethod"
+                                           value="CASH" id="cashRadio" checked/>
+                                    <label class="form-check-label" for="cashRadio">
+                                        <i class="bi bi-cash me-1"></i>Наличные
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="paymentMethod"
+                                           value="CARD" id="cardRadio"/>
+                                    <label class="form-check-label" for="cardRadio">
+                                        <i class="bi bi-credit-card me-1"></i>Карта
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-check-lg me-1"></i>Подтвердить оплату
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Start Game Modals -->
+<div th:each="b : ${bookings}" th:if="${b.status.name() == 'PAID'}">
+    <div th:id="${'startGameModal-' + b.id}" class="modal fade" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Начать игру</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form th:action="@{/bookings/{id}/start-game(id=${b.id})}" method="post">
+                    <div class="modal-body">
+                        <p>Стол №<strong th:text="${b.table.number}"></strong></p>
+                        <p>Первый игрок: <strong th:text="${b.client.fullName}"></strong></p>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Второй игрок <span class="text-danger">*</span></label>
+                            <select name="client2Id" class="form-select" required>
+                                <option value="">— Выберите игрока —</option>
+                                <option th:each="c : ${clients}"
+                                        th:value="${c.id}"
+                                        th:text="${c.fullName + (c.rank != null ? ' (' + c.rank + ')' : '')}">
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-play-fill me-1"></i>Старт
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Finish Game Modals -->
+<div th:each="b : ${bookings}" th:if="${b.status.name() == 'ACTIVE'}">
+    <div th:id="${'finishGameModal-' + b.id}" class="modal fade" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Завершить игру</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form th:action="@{/bookings/{id}/finish-game(id=${b.id})}" method="post">
+                    <div class="modal-body">
+                        <p>Стол №<strong th:text="${b.table.number}"></strong></p>
+                        <div th:if="${activeGames[b.id] != null}">
+                            <p class="mb-3">Выберите победителя:</p>
+                            <div class="d-grid gap-2">
+                                <div class="form-check p-3 border rounded">
+                                    <input class="form-check-input" type="radio" name="winnerId"
+                                           th:value="${activeGames[b.id].client1.id}"
+                                           th:id="${'winner1-' + b.id}" required/>
+                                    <label class="form-check-label fw-semibold"
+                                           th:for="${'winner1-' + b.id}"
+                                           th:text="${activeGames[b.id].client1.fullName}">
+                                    </label>
+                                </div>
+                                <div class="form-check p-3 border rounded">
+                                    <input class="form-check-input" type="radio" name="winnerId"
+                                           th:value="${activeGames[b.id].client2.id}"
+                                           th:id="${'winner2-' + b.id}"/>
+                                    <label class="form-check-label fw-semibold"
+                                           th:for="${'winner2-' + b.id}"
+                                           th:text="${activeGames[b.id].client2.fullName}">
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <p th:unless="${activeGames[b.id] != null}" class="text-danger">
+                            Данные игры не найдены
+                        </p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                        <button type="submit" class="btn btn-warning">
+                            <i class="bi bi-flag-fill me-1"></i>Завершить игру
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

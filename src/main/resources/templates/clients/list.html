@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security" lang="ru">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Клиенты — Бильярдный клуб</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"/>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet"/>
+    <link th:href="@{/css/style.css}" rel="stylesheet"/>
+</head>
+<body>
+<div th:replace="~{fragments/navbar :: navbar}"></div>
+<div class="d-flex">
+    <div th:replace="~{fragments/sidebar :: sidebar}"></div>
+    <main class="flex-grow-1 p-4 bg-light">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="h3 fw-bold mb-0">
+                <i class="bi bi-people me-2 text-warning"></i>Клиенты
+            </h1>
+            <a th:href="@{/clients/add}" sec:authorize="hasRole('ADMIN')"
+               class="btn btn-warning">
+                <i class="bi bi-plus-lg me-1"></i>Добавить клиента
+            </a>
+        </div>
+
+        <div th:if="${successMessage}" class="alert alert-success alert-dismissible">
+            <span th:text="${successMessage}"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        <div th:if="${errorMessage}" class="alert alert-danger alert-dismissible">
+            <span th:text="${errorMessage}"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+
+        <!-- Search / filter form -->
+        <div class="card shadow-sm border-0 mb-3">
+            <div class="card-body py-2">
+                <form th:action="@{/clients}" method="get" class="row g-2 align-items-end">
+                    <div class="col-md-5">
+                        <label class="form-label small mb-1">Поиск по имени</label>
+                        <input type="text" name="search" class="form-control form-control-sm"
+                               placeholder="Введите имя..." th:value="${search}"/>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small mb-1">Разряд</label>
+                        <select name="rank" class="form-select form-select-sm">
+                            <option value="">Все разряды</option>
+                            <option th:each="r : ${ranks}" th:value="${r}" th:text="${r}"
+                                    th:selected="${r == selectedRank}"></option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <button type="submit" class="btn btn-sm btn-outline-secondary w-100">
+                            <i class="bi bi-search me-1"></i>Найти
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>ФИО</th>
+                            <th>Разряд</th>
+                            <th>Телефон</th>
+                            <th class="text-end">Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="client : ${clients}">
+                            <td class="fw-semibold" th:text="${client.fullName}"></td>
+                            <td>
+                                <span class="badge"
+                                      th:classappend="${client.rank == 'Мастер'} ? 'bg-warning text-dark' :
+                                                     (${client.rank == 'Кандидат в мастера'} ? 'bg-primary' :
+                                                     (${client.rank == '1 разряд'} ? 'bg-info text-dark' : 'bg-secondary'))"
+                                      th:text="${client.rank ?: '—'}">
+                                </span>
+                            </td>
+                            <td class="text-muted" th:text="${client.phone ?: '—'}"></td>
+                            <td class="text-end">
+                                <a th:href="@{/clients/{id}/edit(id=${client.id})}"
+                                   class="btn btn-sm btn-outline-secondary me-1">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <form th:action="@{/clients/{id}(id=${client.id})}" method="post"
+                                      class="d-inline" sec:authorize="hasRole('ADMIN')"
+                                      onsubmit="return confirm('Удалить клиента?')">
+                                    <input type="hidden" name="_method" value="delete"/>
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        <tr th:if="${clients.isEmpty()}">
+                            <td colspan="4" class="text-center text-muted py-4">Клиенты не найдены</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

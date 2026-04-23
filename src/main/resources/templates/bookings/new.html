@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ru">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Новое бронирование — Бильярдный клуб</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"/>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet"/>
+    <link th:href="@{/css/style.css}" rel="stylesheet"/>
+</head>
+<body>
+<div th:replace="~{fragments/navbar :: navbar}"></div>
+<div class="d-flex">
+    <div th:replace="~{fragments/sidebar :: sidebar}"></div>
+    <main class="flex-grow-1 p-4 bg-light">
+        <h1 class="h3 fw-bold mb-4">
+            <i class="bi bi-calendar-plus me-2 text-warning"></i>Новое бронирование
+        </h1>
+
+        <div th:if="${errorMessage}" class="alert alert-danger alert-dismissible">
+            <span th:text="${errorMessage}"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+
+        <div class="card shadow-sm border-0" style="max-width:600px">
+            <div class="card-body">
+                <form th:action="@{/bookings}" method="post" th:object="${dto}" id="bookingForm">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Стол <span class="text-danger">*</span></label>
+                        <select name="tableId" id="tableSelect" class="form-select" required>
+                            <option value="">— Выберите стол —</option>
+                            <option th:each="t : ${tables}"
+                                    th:value="${t.id}"
+                                    th:text="${'№' + t.number + ' — ' + t.type.displayName + ' (' + t.pricePerHour + ' руб/час)'}">
+                            </option>
+                        </select>
+                        <div th:if="${#fields.hasErrors('tableId')}" class="text-danger small"
+                             th:errors="*{tableId}"></div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Клиент <span class="text-danger">*</span></label>
+                        <select name="clientId" class="form-select" required>
+                            <option value="">— Выберите клиента —</option>
+                            <option th:each="c : ${clients}"
+                                    th:value="${c.id}"
+                                    th:text="${c.fullName + (c.rank != null ? ' (' + c.rank + ')' : '')}">
+                            </option>
+                        </select>
+                        <div th:if="${#fields.hasErrors('clientId')}" class="text-danger small"
+                             th:errors="*{clientId}"></div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Начало <span class="text-danger">*</span></label>
+                            <input type="datetime-local" name="startTime" id="startTime"
+                                   class="form-control" required/>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Окончание <span class="text-danger">*</span></label>
+                            <input type="datetime-local" name="endTime" id="endTime"
+                                   class="form-control" required/>
+                        </div>
+                    </div>
+
+                    <!-- Price calculation panel -->
+                    <div class="card bg-light border-0 mb-4" id="pricePanel" style="display:none!important">
+                        <div class="card-body py-2 d-flex align-items-center justify-content-between">
+                            <span class="text-muted">Стоимость:</span>
+                            <span class="fw-bold fs-5" id="priceDisplay">—</span>
+                        </div>
+                    </div>
+                    <div class="card bg-warning bg-opacity-10 border-warning border-opacity-25 mb-4" id="pricePanelShow">
+                        <div class="card-body py-2 d-flex align-items-center justify-content-between">
+                            <span>Стоимость бронирования:</span>
+                            <span class="fw-bold fs-5 text-warning" id="priceDisplayMain">—</span>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-secondary" id="calcBtn" onclick="calculatePrice()">
+                            <i class="bi bi-calculator me-1"></i>Рассчитать
+                        </button>
+                        <button type="submit" class="btn btn-warning">
+                            <i class="bi bi-check-lg me-1"></i>Забронировать
+                        </button>
+                        <a th:href="@{/bookings}" class="btn btn-outline-secondary">Отмена</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </main>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script th:src="@{/js/main.js}"></script>
+<script>
+    // Set min datetime to now
+    const now = new Date();
+    const pad = n => String(n).padStart(2,'0');
+    const minDt = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    document.getElementById('startTime').min = minDt;
+    document.getElementById('endTime').min = minDt;
+
+    // Auto-recalculate when inputs change
+    ['tableSelect','startTime','endTime'].forEach(id => {
+        document.getElementById(id).addEventListener('change', calculatePrice);
+    });
+
+    function calculatePrice() {
+        const tableId = document.getElementById('tableSelect').value;
+        const startTime = document.getElementById('startTime').value;
+        const endTime = document.getElementById('endTime').value;
+        if (!tableId || !startTime || !endTime) return;
+
+        fetch(`/bookings/calculate-price?tableId=${tableId}&startTime=${encodeURIComponent(startTime)}&endTime=${encodeURIComponent(endTime)}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.price !== undefined) {
+                    document.getElementById('priceDisplayMain').textContent = data.price + ' руб.';
+                } else {
+                    document.getElementById('priceDisplayMain').textContent = data.error || 'Ошибка';
+                }
+            })
+            .catch(() => {});
+    }
+</script>
+</body>
+</html>

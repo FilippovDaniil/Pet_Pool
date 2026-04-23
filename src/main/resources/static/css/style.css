@@ -1,0 +1,96 @@
+/* Billiard Club — Main Styles */
+
+body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+/* Sidebar */
+.sidebar {
+    transition: width 0.2s;
+    position: sticky;
+    top: 56px;
+    height: calc(100vh - 56px);
+    overflow-y: auto;
+}
+
+.sidebar-link {
+    border-radius: 8px;
+    padding: 8px 12px;
+    transition: background 0.15s;
+    font-size: 0.9rem;
+}
+
+.sidebar-link:hover {
+    background: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Navbar */
+.navbar {
+    position: sticky;
+    top: 0;
+    z-index: 1030;
+    height: 56px;
+}
+
+/* Cards */
+.card {
+    border-radius: 12px;
+}
+
+/* Tables */
+.table thead th {
+    font-weight: 600;
+    font-size: 0.85rem;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+
+/* Badges */
+.badge {
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 0.35em 0.65em;
+}
+
+/* Alerts */
+.alert {
+    border-radius: 10px;
+    border: none;
+}
+
+/* Forms */
+.form-control:focus,
+.form-select:focus {
+    border-color: #ffc107;
+    box-shadow: 0 0 0 0.2rem rgba(255, 193, 7, 0.25);
+}
+
+/* Buttons */
+.btn-warning {
+    color: #000;
+    font-weight: 600;
+}
+
+/* Dashboard stat cards */
+.card.h-100 {
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.card.h-100:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,.08) !important;
+}
+
+/* Modals */
+.modal-content {
+    border-radius: 14px;
+    border: none;
+    box-shadow: 0 20px 60px rgba(0,0,0,.2);
+}
+
+/* Status badges colors (overrides) */
+.badge.status-pending { background: #ffc107; color: #000; }
+.badge.status-paid { background: #0d6efd; }
+.badge.status-active { background: #198754; }
+.badge.status-completed { background: #6c757d; }
+.badge.status-cancelled { background: #dc3545; }
