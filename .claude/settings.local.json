@@ -12,7 +12,17 @@
       "PowerShell(Stop-Process *)",
       "Bash(tee /tmp/bootrun.log)",
       "Read(//tmp/**)",
-      "Bash(curl *)"
+      "Bash(curl *)",
+      "Bash(grep -E \"\\\\.md$|\\\\.yaml$|\\\\.yml$\")",
+      "Bash(grep -E \"\\\\.java$\")",
+      "Bash(./gradlew test *)",
+      "Bash(./gradlew build *)",
+      "Bash(kubectl apply *)",
+      "Bash(kubectl rollout status *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(python -c \"import json; d=json.load\\(open\\('settings.json'\\)\\); print\\(f'Всего правил: {len\\(d[\\\\\"permissions\\\\\"][\\\\\"allow\\\\\"]\\)}'\\)\")",
+      "Bash(python *)"
     ]
   }
 }
