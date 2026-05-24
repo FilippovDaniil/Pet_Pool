@@ -4,8 +4,11 @@ import com.billiardclub.exception.BusinessException;
 import com.billiardclub.model.Client;
 import com.billiardclub.repository.BookingRepository;
 import com.billiardclub.repository.ClientRepository;
+import com.billiardclub.search.ClientDocument;
+import com.billiardclub.search.ClientSearchService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -19,6 +22,9 @@ public class ClientService {
 
     private final ClientRepository clientRepository;
     private final BookingRepository bookingRepository;
+
+    @Autowired(required = false)
+    private ClientSearchService clientSearchService;
 
     public List<Client> findAll() {
         return clientRepository.findAll();
@@ -45,8 +51,10 @@ public class ClientService {
 
     @Transactional
     public Client create(Client client) {
-        log.info("Создан новый клиент: {}", client.getFullName());
-        return clientRepository.save(client);
+        Client saved = clientRepository.save(client);
+        indexClient(saved);
+        log.info("Создан новый клиент: {}", saved.getFullName());
+        return saved;
     }
 
     @Transactional
@@ -57,7 +65,9 @@ public class ClientService {
         if (canChangeRank) {
             existing.setRank(updated.getRank());
         }
-        return clientRepository.save(existing);
+        Client saved = clientRepository.save(existing);
+        indexClient(saved);
+        return saved;
     }
 
     @Transactional
@@ -66,6 +76,19 @@ public class ClientService {
             throw new BusinessException("Нельзя удалить клиента: у него есть бронирования");
         }
         clientRepository.deleteById(id);
+        if (clientSearchService != null) {
+            clientSearchService.removeClient(String.valueOf(id));
+        }
         log.info("Клиент id={} удалён", id);
+    }
+
+    private void indexClient(Client client) {
+        if (clientSearchService == null) return;
+        clientSearchService.indexClient(ClientDocument.builder()
+                .id(String.valueOf(client.getId()))
+                .fullName(client.getFullName())
+                .rank(client.getRank())
+                .phone(client.getPhone())
+                .build());
     }
 }

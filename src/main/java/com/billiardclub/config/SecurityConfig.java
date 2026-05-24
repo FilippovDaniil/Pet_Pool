@@ -10,9 +10,12 @@ import org.springframework.security.authentication.dao.DaoAuthenticationProvider
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 @Configuration
 @EnableWebSecurity
@@ -40,25 +43,58 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
+            // CSRF: use cookie-based token so JavaScript fetch() can read it.
+            // REST clients read XSRF-TOKEN cookie and send X-XSRF-TOKEN header.
+            // Thymeleaf forms continue to work with the hidden _csrf field automatically.
+            .csrf(csrf -> csrf
+                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                // Disable CSRF entirely for /api/search/** (public read-only endpoint)
+                .ignoringRequestMatchers(new AntPathRequestMatcher("/api/search/**"))
+            )
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/login", "/css/**", "/js/**", "/favicon.ico").permitAll()
-                // Admin-only: staff management
+                // K8s health probes must be accessible without authentication
+                .requestMatchers("/actuator/health").permitAll()
+
+                // ── OpenSearch search (public) ──────────────────────────────
+                .requestMatchers("/api/search/**").permitAll()
+
+                // ── REST API: booking operations ────────────────────────────
+                // GET list/detail — any authenticated user
+                .requestMatchers(HttpMethod.GET,    "/api/bookings/**").authenticated()
+                // POST create, PATCH status, POST payment — any authenticated user
+                .requestMatchers(HttpMethod.POST,   "/api/bookings/**").authenticated()
+                .requestMatchers(HttpMethod.PATCH,  "/api/bookings/**").authenticated()
+
+                // ── REST API: tournament ────────────────────────────────────
+                .requestMatchers(HttpMethod.GET,    "/api/tournament/**").authenticated()
+                .requestMatchers(HttpMethod.PUT,    "/api/tournament/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.DELETE, "/api/tournament/**").hasRole("ADMIN")
+
+                // ── UI: admin-only ──────────────────────────────────────────
                 .requestMatchers("/admin/**").hasRole("ADMIN")
-                // Admin-only: table management (write operations)
-                .requestMatchers(HttpMethod.POST, "/tables").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.PUT, "/tables/**").hasRole("ADMIN")
+                // Table management write operations
+                .requestMatchers(HttpMethod.POST,   "/tables").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PUT,    "/tables/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/tables/**").hasRole("ADMIN")
                 .requestMatchers("/tables/add", "/tables/*/edit").hasRole("ADMIN")
-                // Admin-only: client management (create/delete)
-                .requestMatchers(HttpMethod.POST, "/clients").hasRole("ADMIN")
+                // Client management write operations
+                .requestMatchers(HttpMethod.POST,   "/clients").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/clients/**").hasRole("ADMIN")
                 .requestMatchers("/clients/add").hasRole("ADMIN")
-                // Admin-only: tournament record moderation
-                .requestMatchers(HttpMethod.DELETE, "/tournament/**").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.PUT, "/tournament/**").hasRole("ADMIN")
-                .requestMatchers("/tournament/record/*/edit").hasRole("ADMIN")
+                // Tournament UI: edit form (GET) — admin only
+                .requestMatchers("/tournament/*/edit").hasRole("ADMIN")
+
                 // Everything else requires authentication
                 .anyRequest().authenticated()
+            )
+            // REST API endpoints return 401 instead of redirecting to login page
+            .exceptionHandling(ex -> ex
+                .defaultAuthenticationEntryPointFor(
+                    (request, response, authException) ->
+                        response.sendError(HttpServletResponse.SC_UNAUTHORIZED),
+                    new AntPathRequestMatcher("/api/**")
+                )
             )
             .formLogin(form -> form
                 .loginPage("/login")
