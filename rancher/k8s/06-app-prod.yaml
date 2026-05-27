@@ -1,0 +1,110 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: billiard-config
+  namespace: billiard-club
+data:
+  SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres:5432/billiard_club"
+  SPRING_DATASOURCE_USERNAME: "postgres"
+  OPENSEARCH_URL: "http://opensearch:9200"
+  MANAGEMENT_HEALTH_MAIL_ENABLED: "false"
+  MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS: "always"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: billiard-app
+  namespace: billiard-club
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: billiard-app
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: billiard-app
+    spec:
+      imagePullSecrets:
+        - name: ghcr-secret
+      initContainers:
+        - name: wait-for-postgres
+          image: busybox:1.36
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z postgres 5432; do
+                echo "Waiting for postgres:5432..."
+                sleep 2
+              done
+              echo "PostgreSQL is ready!"
+        - name: wait-for-opensearch
+          image: busybox:1.36
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z opensearch 9200; do
+                echo "Waiting for opensearch:9200..."
+                sleep 3
+              done
+              echo "OpenSearch is ready!"
+      containers:
+        - name: billiard-app
+          # Image is updated by CD pipeline via: kubectl set image
+          image: ghcr.io/OWNER/REPO:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 7070
+          envFrom:
+            - configMapRef:
+                name: billiard-config
+          env:
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: billiard-secrets
+                  key: postgres-password
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 7070
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 7070
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: billiard-service
+  namespace: billiard-club
+spec:
+  selector:
+    app: billiard-app
+  ports:
+    - port: 7070
+      targetPort: 7070
+      nodePort: 30707
+  type: NodePort

@@ -1,0 +1,88 @@
+name: CD
+
+on:
+  workflow_run:
+    workflows: [ "CI" ]
+    types: [ completed ]
+    branches: [ master ]
+
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Image tag to deploy (e.g. sha-abc1234)'
+        required: true
+        default: 'latest'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  K8S_NAMESPACE: billiard-club
+  K8S_DEPLOYMENT: billiard-app
+  K8S_CONTAINER: billiard-app
+
+jobs:
+  deploy:
+    name: Deploy to Kubernetes
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+
+    environment:
+      name: production
+      url: http://${{ vars.PROD_HOST }}:30707
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve image tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "value=${{ inputs.image_tag }}" >> $GITHUB_OUTPUT
+          else
+            SHORT_SHA=$(echo "${{ github.event.workflow_run.head_sha }}" | cut -c1-7)
+            echo "value=sha-${SHORT_SHA}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > ~/.kube/config
+          chmod 600 ~/.kube/config
+
+      - name: Apply K8s manifests (infra)
+        run: |
+          kubectl apply -f rancher/k8s/00-namespace.yaml
+          kubectl apply -f rancher/k8s/01-secrets.yaml
+          kubectl apply -f rancher/k8s/02-postgres.yaml
+          kubectl apply -f rancher/k8s/08-opensearch.yaml
+
+      - name: Update app image
+        run: |
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.value }}"
+          echo "Deploying image: ${IMAGE}"
+          kubectl set image deployment/${{ env.K8S_DEPLOYMENT }} \
+            ${{ env.K8S_CONTAINER }}=${IMAGE} \
+            --namespace ${{ env.K8S_NAMESPACE }}
+          kubectl annotate deployment/${{ env.K8S_DEPLOYMENT }} \
+            kubernetes.io/change-cause="deploy ${IMAGE} by ${{ github.actor }}" \
+            --namespace ${{ env.K8S_NAMESPACE }} \
+            --overwrite
+
+      - name: Wait for rollout
+        run: |
+          kubectl rollout status deployment/${{ env.K8S_DEPLOYMENT }} \
+            --namespace ${{ env.K8S_NAMESPACE }} \
+            --timeout=180s
+
+      - name: Verify health
+        run: |
+          POD=$(kubectl get pod -n ${{ env.K8S_NAMESPACE }} \
+            -l app=${{ env.K8S_DEPLOYMENT }} \
+            -o jsonpath='{.items[0].metadata.name}')
+          kubectl exec -n ${{ env.K8S_NAMESPACE }} ${POD} -- \
+            wget -qO- http://localhost:7070/actuator/health | grep -q '"status":"UP"'
+          echo "Health check passed"
