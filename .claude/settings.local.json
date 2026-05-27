@@ -22,7 +22,8 @@
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
       "Bash(python -c \"import json; d=json.load\\(open\\('settings.json'\\)\\); print\\(f'Всего правил: {len\\(d[\\\\\"permissions\\\\\"][\\\\\"allow\\\\\"]\\)}'\\)\")",
-      "Bash(python *)"
+      "Bash(python *)",
+      "Bash(git *)"
     ]
   }
 }
